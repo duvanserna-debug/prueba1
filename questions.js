@@ -3,7 +3,7 @@
 window.CONFIG = {
   titulo: "Simulacro Pensar 1 – Grado sexto",
   // Pega aquí la URL de tu Apps Script publicado (ver README)
-  apiUrl: "PEGA_AQUI_LA_URL_DEL_APPS_SCRIPT",
+  apiUrl: "https://script.google.com/macros/s/AKfycbxInqwbmk5CyCjIS8vVs21YSErHdFtlFhKg0qUL4dBrVqheApC9pw7OYNBiMNZsnol6/exec",
   segundosPorPregunta: 120,
 };
 
