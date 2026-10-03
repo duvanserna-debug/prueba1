@@ -3,62 +3,101 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Test tipo ICFES</title>
+<title>Simulacro Pensar</title>
 <style>
-  :root { --bg:#f5f6fa; --card:#fff; --ink:#1c2230; --mut:#667; --acc:#2f5bea; --line:#dde1ea; }
-  @media (prefers-color-scheme: dark) { :root { --bg:#12151c; --card:#1b2029; --ink:#e8ebf2; --mut:#9aa3b5; --acc:#6b8cff; --line:#2c3341; } }
+  :root { --bg:#f5f6fa; --card:#fff; --ink:#1c2230; --mut:#667; --acc:#2f5bea; --line:#dde1ea; --bad:#c0392b; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#12151c; --card:#1b2029; --ink:#e8ebf2; --mut:#9aa3b5; --acc:#6b8cff; --line:#2c3341; --bad:#ff7b6b; } }
   * { box-sizing:border-box } body { margin:0; font:16px/1.5 system-ui,sans-serif; background:var(--bg); color:var(--ink) }
-  main { max-width:720px; margin:0 auto; padding:16px }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin:12px 0 }
-  h1 { font-size:1.4rem } .area { color:var(--acc); font-size:.8rem; text-transform:uppercase; letter-spacing:.05em }
-  label.op { display:block; padding:8px 10px; border:1px solid var(--line); border-radius:8px; margin:6px 0; cursor:pointer }
-  label.op:has(input:checked) { border-color:var(--acc); background:color-mix(in srgb,var(--acc) 12%,transparent) }
-  input[type=text] { width:100%; padding:10px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--ink); font:inherit; margin:4px 0 10px }
-  button { background:var(--acc); color:#fff; border:0; border-radius:8px; padding:12px 20px; font:inherit; cursor:pointer }
-  button:disabled { opacity:.5 } .msg { color:var(--mut) }
+  main { max-width:900px; margin:0 auto; padding:16px } .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin:12px 0 }
+  input[type=text] { width:100%; padding:10px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--ink); font:inherit; margin:4px 0 12px }
+  button { background:var(--acc); color:#fff; border:0; border-radius:8px; padding:12px 22px; font:inherit; cursor:pointer } button:disabled { opacity:.5 }
+  header { position:sticky; top:0; z-index:2; background:var(--card); border-bottom:1px solid var(--line); padding:8px 16px; display:flex; justify-content:space-between; align-items:center; gap:8px }
+  .timer { font:700 1.5rem ui-monospace,monospace } .timer.low { color:var(--bad) }
+  .bar { height:4px; background:var(--line) } .bar i { display:block; height:100%; background:var(--acc); width:0 }
+  .pags img { width:100%; display:block; border:1px solid var(--line); border-radius:8px; margin:8px 0; background:#fff }
+  footer { position:sticky; bottom:0; background:var(--card); border-top:1px solid var(--line); padding:10px 16px; display:flex; gap:8px; justify-content:center; align-items:center; flex-wrap:wrap }
+  .op { width:52px; height:52px; border-radius:50%; background:var(--bg); color:var(--ink); border:2px solid var(--line); font-weight:700; padding:0 }
+  .op.sel { background:var(--acc); color:#fff; border-color:var(--acc) } .area { color:var(--acc); font-size:.8rem; text-transform:uppercase; letter-spacing:.05em }
+  .msg { color:var(--mut) } [hidden] { display:none !important }
 </style>
 </head>
 <body>
-<main>
+<div id="inicio"><main>
   <h1 id="titulo"></h1>
-  <form id="f">
-    <div class="card">
-      <label>Nombre completo<input type="text" name="nombre" required></label>
-      <label>Documento o código<input type="text" name="documento" required></label>
-    </div>
-    <div id="preguntas"></div>
-    <button id="btn" type="submit">Enviar respuestas</button>
-    <p class="msg" id="msg"></p>
-  </form>
-</main>
+  <div class="card">
+    <p>Son <b>100 preguntas</b> de 5 áreas. Tienes <b>2 minutos por pregunta</b>: al acabar el tiempo se pasa automáticamente a la siguiente y <b>no se puede volver atrás</b>. Si no marcas nada, la pregunta queda en blanco.</p>
+    <label>Nombre completo<input type="text" id="nombre"></label>
+    <label>Documento o código<input type="text" id="documento"></label>
+    <button id="empezar">Empezar</button> <span class="msg" id="aviso"></span>
+  </div>
+</main></div>
+
+<div id="test" hidden>
+  <header><div><div class="area" id="area"></div><b id="num"></b></div><div class="timer" id="reloj"></div></header>
+  <div class="bar"><i id="prog"></i></div>
+  <main><div class="pags" id="pags"></div></main>
+  <footer><span id="ops"></span><button id="sig">Siguiente →</button></footer>
+</div>
+
+<div id="fin" hidden><main><div class="card"><h2>¡Terminaste!</h2><p id="finmsg">Enviando respuestas…</p><button id="reintentar" hidden>Reintentar envío</button></div></main></div>
+
 <script src="questions.js"></script>
 <script>
 const $ = s => document.querySelector(s);
+const N = 100, SEG = CONFIG.segundosPorPregunta;
+const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const resp = Array(N).fill("-"), tiempos = Array(N).fill(0);
+let q = 0, fin = 0, intervalo, estado = "parcial";
 $("#titulo").textContent = CONFIG.titulo;
-document.title = CONFIG.titulo;
-$("#preguntas").innerHTML = PREGUNTAS.map((p, i) => `
-  <div class="card">
-    <div class="area">${i + 1}. ${p.area}</div>
-    <p>${p.texto}</p>
-    ${p.opciones.map((o, j) => `<label class="op"><input type="radio" name="q${i}" value="${j}" required> ${"ABCD"[j]}. ${o}</label>`).join("")}
-  </div>`).join("");
 
-$("#f").addEventListener("submit", async e => {
-  e.preventDefault();
-  const fd = new FormData(e.target);
-  const respuestas = PREGUNTAS.map((_, i) => "ABCD"[fd.get("q" + i)]);
-  $("#btn").disabled = true; $("#msg").textContent = "Enviando…";
-  try {
-    // text/plain evita el preflight CORS de Apps Script
-    const r = await fetch(CONFIG.apiUrl, { method: "POST", headers: { "Content-Type": "text/plain" },
-      body: JSON.stringify({ nombre: fd.get("nombre"), documento: fd.get("documento"), respuestas }) });
-    const j = await r.json();
-    if (!j.ok) throw new Error(j.error || "Error");
-    $("#f").innerHTML = '<div class="card"><h2>¡Respuestas enviadas!</h2><p>Gracias, ya quedaron registradas.</p></div>';
-  } catch (err) {
-    $("#btn").disabled = false; $("#msg").textContent = "No se pudo enviar: " + err.message;
-  }
-});
+function enviar(beacon) {
+  const body = JSON.stringify({ id, nombre: $("#nombre").value.trim(), documento: $("#documento").value.trim(), estado, respuestas: resp, tiempos });
+  if (beacon && navigator.sendBeacon) { navigator.sendBeacon(CONFIG.apiUrl, new Blob([body], { type: "text/plain" })); return Promise.resolve(); }
+  // text/plain evita el preflight CORS de Apps Script
+  return fetch(CONFIG.apiUrl, { method: "POST", headers: { "Content-Type": "text/plain" }, body }).then(r => r.json()).then(j => { if (!j.ok) throw new Error(j.error); });
+}
+
+$("#empezar").onclick = () => {
+  if (!$("#nombre").value.trim() || !$("#documento").value.trim()) { $("#aviso").textContent = "Escribe tu nombre y documento."; return; }
+  $("#inicio").hidden = true; $("#test").hidden = false; mostrar(0);
+  enviar().catch(() => {});
+};
+
+function mostrar(i) {
+  q = i; const n = i + 1;
+  const area = AREAS.find(a => n >= a.desde && n <= a.hasta);
+  $("#area").textContent = area.nombre; $("#num").textContent = `Pregunta ${n} de ${N}`;
+  $("#pags").innerHTML = PAGINAS[n].map(p => `<img src="paginas/p-${String(p).padStart(2, "0")}.jpg" alt="Página ${p}" loading="eager">`).join("");
+  $("#ops").innerHTML = (TRES_OPCIONES.includes(n) ? "ABC" : "ABCD").split("").map(l => `<button class="op" data-l="${l}">${l}</button>`).join("");
+  document.querySelectorAll(".op").forEach(b => b.onclick = () => { resp[q] = b.dataset.l; marcar(); });
+  $("#sig").textContent = n === N ? "Terminar ✓" : "Siguiente →";
+  marcar(); window.scrollTo(0, 0);
+  $("#prog").style.width = (i / N * 100) + "%";
+  fin = Date.now() + SEG * 1000; clearInterval(intervalo); intervalo = setInterval(tick, 250); tick();
+}
+function marcar() { document.querySelectorAll(".op").forEach(b => b.classList.toggle("sel", b.dataset.l === resp[q])); }
+function tick() {
+  const s = Math.max(0, Math.ceil((fin - Date.now()) / 1000));
+  $("#reloj").textContent = Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+  $("#reloj").classList.toggle("low", s <= 20);
+  if (s <= 0) avanzar();
+}
+function avanzar() {
+  clearInterval(intervalo);
+  tiempos[q] = Math.min(SEG, Math.round(SEG - (fin - Date.now()) / 1000));
+  if (q + 1 < N) { if ((q + 1) % 5 === 0) enviar().catch(() => {}); mostrar(q + 1); }
+  else terminar();
+}
+$("#sig").onclick = avanzar;
+
+function terminar() {
+  estado = "completo"; $("#test").hidden = true; $("#fin").hidden = false;
+  const intentar = () => { $("#reintentar").hidden = true; $("#finmsg").textContent = "Enviando respuestas…";
+    enviar().then(() => { $("#finmsg").textContent = "Tus respuestas quedaron registradas. ¡Gracias!"; })
+      .catch(e => { $("#finmsg").textContent = "No se pudo enviar (" + e.message + "). No cierres la página."; $("#reintentar").hidden = false; }); };
+  $("#reintentar").onclick = intentar; intentar();
+}
+addEventListener("pagehide", () => { if (!$("#test").hidden) { tiempos[q] = Math.min(SEG, Math.round(SEG - (fin - Date.now()) / 1000)); enviar(true); } });
 </script>
 </body>
 </html>
