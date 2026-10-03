@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Panel de resultados</title>
+<style>
+  :root { --bg:#f5f6fa; --card:#fff; --ink:#1c2230; --mut:#667; --acc:#2f5bea; --line:#dde1ea; --ok:#1a8a4a; --bad:#c0392b; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#12151c; --card:#1b2029; --ink:#e8ebf2; --mut:#9aa3b5; --acc:#6b8cff; --line:#2c3341; --ok:#4cc38a; --bad:#ff7b6b; } }
+  * { box-sizing:border-box } body { margin:0; font:15px/1.5 system-ui,sans-serif; background:var(--bg); color:var(--ink) }
+  main { max-width:1100px; margin:0 auto; padding:16px }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin:12px 0; overflow-x:auto }
+  input { padding:9px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--ink); font:inherit }
+  button { background:var(--acc); color:#fff; border:0; border-radius:8px; padding:9px 16px; font:inherit; cursor:pointer }
+  table { border-collapse:collapse; width:100%; font-size:.9rem } th,td { padding:6px 10px; border-bottom:1px solid var(--line); text-align:left; white-space:nowrap }
+  .ok { color:var(--ok); font-weight:600 } .bad { color:var(--bad) } .msg { color:var(--mut) }
+  .stats { display:flex; gap:12px; flex-wrap:wrap } .stat b { display:block; font-size:1.5rem }
+</style>
+</head>
+<body>
+<main>
+  <h1>Panel de resultados</h1>
+  <div class="card">
+    <input id="clave" type="password" placeholder="Clave de administrador">
+    <button id="cargar">Cargar</button>
+    <button id="csv" disabled>Descargar CSV</button>
+    <span class="msg" id="msg"></span>
+  </div>
+  <div class="card stats" id="stats" hidden></div>
+  <div class="card" id="tabla" hidden></div>
+</main>
+<script src="questions.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+let filas = [];
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const hayClave = PREGUNTAS.some(p => p.correcta !== undefined);
+const puntaje = r => r.respuestas.filter((x, i) => PREGUNTAS[i].correcta !== undefined && x === "ABCD"[PREGUNTAS[i].correcta]).length;
+
+$("#cargar").onclick = async () => {
+  $("#msg").textContent = "Cargando…";
+  try {
+    const r = await fetch(CONFIG.apiUrl + "?action=results&key=" + encodeURIComponent($("#clave").value));
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error);
+    filas = j.rows; pintar(); $("#msg").textContent = filas.length + " registros"; $("#csv").disabled = false;
+  } catch (e) { $("#msg").textContent = "Error: " + e.message; }
+};
+
+function pintar() {
+  const th = PREGUNTAS.map((_, i) => `<th>P${i + 1}</th>`).join("");
+  $("#tabla").hidden = false;
+  $("#tabla").innerHTML = `<table><tr><th>Fecha</th><th>Nombre</th><th>Documento</th>${th}${hayClave ? "<th>Puntaje</th>" : ""}</tr>` +
+    filas.map(r => `<tr><td>${esc(new Date(r.fecha).toLocaleString())}</td><td>${esc(r.nombre)}</td><td>${esc(r.documento)}</td>` +
+      r.respuestas.map((x, i) => { const c = PREGUNTAS[i]?.correcta; return `<td class="${c === undefined ? "" : x === "ABCD"[c] ? "ok" : "bad"}">${esc(x)}</td>`; }).join("") +
+      (hayClave ? `<td>${puntaje(r)}/${PREGUNTAS.length}</td>` : "") + "</tr>").join("") + "</table>";
+  $("#stats").hidden = false;
+  const prom = hayClave && filas.length ? (filas.reduce((a, r) => a + puntaje(r), 0) / filas.length).toFixed(1) : "—";
+  $("#stats").innerHTML = `<div class="stat"><b>${filas.length}</b>Estudiantes</div><div class="stat"><b>${prom}</b>Promedio (de ${PREGUNTAS.length})</div>`;
+}
+
+$("#csv").onclick = () => {
+  const q = v => '"' + String(v).replace(/"/g, '""') + '"';
+  const cab = ["Fecha", "Nombre", "Documento", ...PREGUNTAS.map((_, i) => "P" + (i + 1)), ...(hayClave ? ["Puntaje"] : [])];
+  const lineas = filas.map(r => [r.fecha, r.nombre, r.documento, ...r.respuestas, ...(hayClave ? [puntaje(r)] : [])].map(q).join(","));
+  const blob = new Blob(["﻿" + [cab.map(q).join(","), ...lineas].join("\n")], { type: "text/csv;charset=utf-8" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "resultados.csv"; a.click();
+};
+</script>
+</body>
+</html>

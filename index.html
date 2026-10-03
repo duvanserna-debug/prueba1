@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Test tipo ICFES</title>
+<style>
+  :root { --bg:#f5f6fa; --card:#fff; --ink:#1c2230; --mut:#667; --acc:#2f5bea; --line:#dde1ea; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#12151c; --card:#1b2029; --ink:#e8ebf2; --mut:#9aa3b5; --acc:#6b8cff; --line:#2c3341; } }
+  * { box-sizing:border-box } body { margin:0; font:16px/1.5 system-ui,sans-serif; background:var(--bg); color:var(--ink) }
+  main { max-width:720px; margin:0 auto; padding:16px }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin:12px 0 }
+  h1 { font-size:1.4rem } .area { color:var(--acc); font-size:.8rem; text-transform:uppercase; letter-spacing:.05em }
+  label.op { display:block; padding:8px 10px; border:1px solid var(--line); border-radius:8px; margin:6px 0; cursor:pointer }
+  label.op:has(input:checked) { border-color:var(--acc); background:color-mix(in srgb,var(--acc) 12%,transparent) }
+  input[type=text] { width:100%; padding:10px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--ink); font:inherit; margin:4px 0 10px }
+  button { background:var(--acc); color:#fff; border:0; border-radius:8px; padding:12px 20px; font:inherit; cursor:pointer }
+  button:disabled { opacity:.5 } .msg { color:var(--mut) }
+</style>
+</head>
+<body>
+<main>
+  <h1 id="titulo"></h1>
+  <form id="f">
+    <div class="card">
+      <label>Nombre completo<input type="text" name="nombre" required></label>
+      <label>Documento o código<input type="text" name="documento" required></label>
+    </div>
+    <div id="preguntas"></div>
+    <button id="btn" type="submit">Enviar respuestas</button>
+    <p class="msg" id="msg"></p>
+  </form>
+</main>
+<script src="questions.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+$("#titulo").textContent = CONFIG.titulo;
+document.title = CONFIG.titulo;
+$("#preguntas").innerHTML = PREGUNTAS.map((p, i) => `
+  <div class="card">
+    <div class="area">${i + 1}. ${p.area}</div>
+    <p>${p.texto}</p>
+    ${p.opciones.map((o, j) => `<label class="op"><input type="radio" name="q${i}" value="${j}" required> ${"ABCD"[j]}. ${o}</label>`).join("")}
+  </div>`).join("");
+
+$("#f").addEventListener("submit", async e => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const respuestas = PREGUNTAS.map((_, i) => "ABCD"[fd.get("q" + i)]);
+  $("#btn").disabled = true; $("#msg").textContent = "Enviando…";
+  try {
+    // text/plain evita el preflight CORS de Apps Script
+    const r = await fetch(CONFIG.apiUrl, { method: "POST", headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify({ nombre: fd.get("nombre"), documento: fd.get("documento"), respuestas }) });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || "Error");
+    $("#f").innerHTML = '<div class="card"><h2>¡Respuestas enviadas!</h2><p>Gracias, ya quedaron registradas.</p></div>';
+  } catch (err) {
+    $("#btn").disabled = false; $("#msg").textContent = "No se pudo enviar: " + err.message;
+  }
+});
+</script>
+</body>
+</html>
