@@ -18,6 +18,7 @@
   footer { position:sticky; bottom:0; background:var(--card); border-top:1px solid var(--line); padding:10px 16px; display:flex; gap:8px; justify-content:center; align-items:center; flex-wrap:wrap }
   .op { width:52px; height:52px; border-radius:50%; background:var(--bg); color:var(--ink); border:2px solid var(--line); font-weight:700; padding:0 }
   .op.sel { background:var(--acc); color:#fff; border-color:var(--acc) } .area { color:var(--acc); font-size:.8rem; text-transform:uppercase; letter-spacing:.05em }
+  .qn { background:var(--acc); color:#fff; border-radius:10px; padding:6px 14px; font-weight:700; font-size:1.1rem; white-space:nowrap }
   .msg { color:var(--mut) } [hidden] { display:none !important }
 </style>
 </head>
@@ -36,7 +37,7 @@
   <header><div><div class="area" id="area"></div><b id="num"></b></div><div class="timer" id="reloj"></div></header>
   <div class="bar"><i id="prog"></i></div>
   <main><div class="pags" id="pags"></div></main>
-  <footer><span id="ops"></span><button id="sig">Siguiente →</button></footer>
+  <footer><span class="qn" id="qn"></span><span id="ops"></span><button id="sig">Siguiente →</button></footer>
 </div>
 
 <div id="fin" hidden><main><div class="card"><h2>¡Terminaste!</h2><p id="finmsg">Enviando respuestas…</p><button id="reintentar" hidden>Reintentar envío</button></div></main></div>
@@ -70,6 +71,7 @@ function mostrar(i) {
   $("#pags").innerHTML = PAGINAS[n].map(p => `<img src="paginas/p-${String(p).padStart(2, "0")}.jpg" alt="Página ${p}" loading="eager">`).join("");
   $("#ops").innerHTML = (TRES_OPCIONES.includes(n) ? "ABC" : "ABCD").split("").map(l => `<button class="op" data-l="${l}">${l}</button>`).join("");
   document.querySelectorAll(".op").forEach(b => b.onclick = () => { resp[q] = b.dataset.l; marcar(); });
+  $("#qn").textContent = "Pregunta " + n;
   $("#sig").textContent = n === N ? "Terminar ✓" : "Siguiente →";
   marcar(); window.scrollTo(0, 0);
   $("#prog").style.width = (i / N * 100) + "%";
